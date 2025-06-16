@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universo Interativo</title>
+    <meta name="description" content="Uma experiência interativa do universo com estrelas que respondem ao movimento do mouse">
+    <meta name="keywords" content="universo, estrelas, interativo, animação, coração">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            cursor: none;
+            font-family: Arial, sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        canvas {
+            display: block;
+            background: #000000;
+        }
+        
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            z-index: 10;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            transition: transform 0.1s ease;
+            display: none;
+        }
+        
+        @media (min-width: 769px) and (hover: hover) {
+            .cursor {
+                display: block;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .info {
+                font-size: 12px;
+                top: 10px;
+                left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="universe"></canvas>
+    <div class="cursor" id="cursor"></div>
+    <div class="info">
+        <div>🌌 Universo Interativo</div>
+        <div>Mova o mouse para repelir as estrelas</div>
+        <div>💖 Duplo clique para formar um coração</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('universe');
+        const ctx = canvas.getContext('2d');
+        const cursor = document.getElementById('cursor');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        let mouseForce = 120;
+        let heartMode = false;
+        let clickCount = 0;
+        let clickTimer = null;
+        
+        const stars = [];
+        const numStars = 200;
+        
+        class Star {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.originalX = this.x;
+                this.originalY = this.y;
+                this.size = Math.random() * 1.5 + 0.3;
+                this.brightness = Math.random() * 0.6 + 0.4;
+                this.twinkleSpeed = Math.random() * 0.01 + 0.005;
+                this.twinkleOffset = Math.random() * Math.PI * 2;
+                this.vx = 0;
+                this.vy = 0;
+                this.mass = Math.random() * 0.5 + 0.5;
+                this.heartX = 0;
+                this.heartY = 0;
+                this.color = this.getStarColor();
+            }
+            
+            getStarColor() {
+                const colors = ['#ffffff', '#ffffcc', '#ffcc99', '#ccccff', '#99ccff', '#ffccff'];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            update() {
+                if (!heartMode) {
+                    const dx = this.x - mouseX;
+                    const dy = this.y - mouseY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < mouseForce && distance > 0) {
+                        const forceMagnitude = (mouseForce - distance) / (mouseForce * distance);
+                        const forceX = (dx / distance) * forceMagnitude * 2;
+                        const forceY = (dy / distance) * forceMagnitude * 2;
+                        
+                        this.vx += forceX / this.mass;
+                        this.vy += forceY / this.mass;
+                    }
+                }
+                
+                let targetX = heartMode ? this.heartX : this.originalX;
+                let targetY = heartMode ? this.heartY : this.originalY;
+                
+                if (heartMode) {
+                    const dx = targetX - this.x;
+                    const dy = targetY - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance > 5) {
+                        this.vx = dx * 0.2;
+                        this.vy = dy * 0.2;
+                    } else {
+                        this.vx *= 0.5;
+                        this.vy *= 0.5;
+                    }
+                } else {
+                    const returnDx = targetX - this.x;
+                    const returnDy = targetY - this.y;
+                    const returnDistance = Math.sqrt(returnDx * returnDx + returnDy * returnDy);
+                    
+                    if (returnDistance > 0) {
+                        const returnForce = 0.008;
+                        this.vx += (returnDx / returnDistance) * returnForce * returnDistance * 0.01;
+                        this.vy += (returnDy / returnDistance) * returnForce * returnDistance * 0.01;
+                    }
+                    
+                    this.vx *= 0.98;
+                    this.vy *= 0.98;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (!heartMode) {
+                    if (this.x < -50) {
+                        this.x = canvas.width + 50;
+                        this.originalX = this.x;
+                    }
+                    if (this.x > canvas.width + 50) {
+                        this.x = -50;
+                        this.originalX = this.x;
+                    }
+                    if (this.y < -50) {
+                        this.y = canvas.height + 50;
+                        this.originalY = this.y;
+                    }
+                    if (this.y > canvas.height + 50) {
+                        this.y = -50;
+                        this.originalY = this.y;
+                    }
+                }
+            }
+            
+            draw() {
+                const twinkle = Math.sin(Date.now() * this.twinkleSpeed + this.twinkleOffset);
+                const alpha = Math.max(0.4, this.brightness + twinkle * 0.3);
+                
+                const dx = this.x - mouseX;
+                const dy = this.y - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const glowIntensity = Math.max(0, 1 - distance / mouseForce);
+                
+                ctx.save();
+                
+                if (glowIntensity > 0.1 && !heartMode) {
+                    const glowSize = this.size * (2 + glowIntensity * 4);
+                    ctx.globalAlpha = glowIntensity * 0.3;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, glowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (this.size > 1.0) {
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 0.5;
+                    ctx.globalAlpha = alpha * 0.8;
+                    
+                    const crossSize = this.size * 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - crossSize, this.y);
+                    ctx.lineTo(this.x + crossSize, this.y);
+                    ctx.moveTo(this.x, this.y - crossSize);
+                    ctx.lineTo(this.x, this.y + crossSize);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        function createStars() {
+            stars.length = 0;
+            for (let i = 0; i < numStars; i++) {
+                stars.push(new Star());
+            }
+        }
+        
+        function generateHeartPositions() {
+            const positions = [];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const scale = 8;
+            
+            for (let i = 0; i < stars.length; i++) {
+                const t = (i / stars.length) * Math.PI * 2;
+                const x = scale * 16 * Math.pow(Math.sin(t), 3);
+                const y = scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+                
+                positions.push({
+                    x: centerX + x,
+                    y: centerY - y
+                });
+            }
+            
+            return positions;
+        }
+        
+        function toggleHeartMode() {
+            heartMode = !heartMode;
+            
+            if (heartMode) {
+                const heartPositions = generateHeartPositions();
+                stars.forEach((star, index) => {
+                    const pos = heartPositions[index];
+                    star.heartX = pos.x;
+                    star.heartY = pos.y;
+                });
+                
+                stars.forEach(star => {
+                    const romanticColors = ['#ff69b4', '#ff1493', '#ffc0cb', '#ffffff', '#ffb6c1', '#ff91a4'];
+                    star.color = romanticColors[Math.floor(Math.random() * romanticColors.length)];
+                });
+            } else {
+                stars.forEach(star => {
+                    star.color = star.getStarColor();
+                });
+            }
+        }
+        
+        function animate() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+            
+            if (!heartMode && window.innerWidth > 768) {
+                ctx.save();
+                ctx.globalAlpha = 0.05;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.beginPath();
+                ctx.arc(mouseX, mouseY, mouseForce, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        let isTouchDevice = false;
+        
+        window.addEventListener('touchstart', () => {
+            isTouchDevice = true;
+        });
+        
+        window.addEventListener('mousemove', (e) => {
+            if (!isTouchDevice) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                
+                if (window.innerWidth > 768) {
+                    cursor.style.left = (mouseX - 10) + 'px';
+                    cursor.style.top = (mouseY - 10) + 'px';
+                    cursor.style.transform = 'scale(1.2)';
+                    
+                    setTimeout(() => {
+                        cursor.style.transform = 'scale(1)';
+                    }, 100);
+                }
+            }
+        });
+        
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+        });
+        
+        canvas.addEventListener('click', (e) => {
+            clickCount++;
+            
+            if (clickCount === 1) {
+                clickTimer = setTimeout(() => {
+                    clickCount = 0;
+                }, 300);
+            } else if (clickCount === 2) {
+                clearTimeout(clickTimer);
+                clickCount = 0;
+                toggleHeartMode();
+            }
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            const event = new MouseEvent('click', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(event);
+        });
+        
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            createStars();
+        });
+        
+        window.addEventListener('wheel', (e) => {
+            if (!isTouchDevice) {
+                mouseForce += e.deltaY * 0.5;
+                mouseForce = Math.max(50, Math.min(300, mouseForce));
+            }
+        });
+        
+        window.addEventListener('keydown', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 's':
+                    stars.forEach(star => {
+                        const dx = star.x - mouseX;
+                        const dy = star.y - mouseY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < mouseForce * 2) {
+                            star.vx += (Math.random() - 0.5) * 20;
+                            star.vy += (Math.random() - 0.5) * 20;
+                        }
+                    });
+                    break;
+                case 'r':
+                    createStars();
+                    heartMode = false;
+                    break;
+            }
+        });
+        
+        createStars();
+        animate();
+    </script>
+</body>
+</html>
