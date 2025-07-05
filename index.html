@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universo ❤️</title>
+    <title>Universo Interativo</title>
     <meta name="description" content="Uma experiência interativa do universo com estrelas que respondem ao movimento do mouse">
     <meta name="keywords" content="universo, estrelas, interativo, animação, coração">
     <style>
@@ -23,16 +23,6 @@
             background: #000000;
         }
         
-        .info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
-            z-index: 10;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-        }
-        
         .cursor {
             position: absolute;
             width: 20px;
@@ -46,6 +36,29 @@
             display: none;
         }
         
+        .love-message {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%) scale(0);
+            color: #ff69b4;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 
+                0 0 30px rgba(255, 105, 180, 0.8),
+                0 0 60px rgba(255, 105, 180, 0.6),
+                0 0 90px rgba(255, 105, 180, 0.4);
+            z-index: 200;
+            letter-spacing: 3px;
+            opacity: 0;
+            transition: all 2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .love-message.show {
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+        }
+        
         @media (min-width: 769px) and (hover: hover) {
             .cursor {
                 display: block;
@@ -53,10 +66,9 @@
         }
         
         @media (max-width: 768px) {
-            .info {
-                font-size: 12px;
-                top: 10px;
-                left: 10px;
+            .love-message {
+                font-size: 32px;
+                bottom: 15%;
             }
         }
     </style>
@@ -64,16 +76,13 @@
 <body>
     <canvas id="universe"></canvas>
     <div class="cursor" id="cursor"></div>
-    <div class="info">
-        <div>🌌 Universo Interativo</div>
-        <div>Mova o mouse para repelir as estrelas</div>
-        <div>💖 Duplo clique para formar um coração</div>
-    </div>
+    <div class="love-message" id="loveMessage">EU TE AMO</div>
 
     <script>
         const canvas = document.getElementById('universe');
         const ctx = canvas.getContext('2d');
         const cursor = document.getElementById('cursor');
+        const loveMessage = document.getElementById('loveMessage');
         
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -87,9 +96,11 @@
         let heartMode = false;
         let clickCount = 0;
         let clickTimer = null;
+        let animationProgress = 0;
+        let isAnimating = false;
         
         const stars = [];
-        const numStars = 200;
+        const numStars = 400; // Aumentado de 200 para 400
         
         class Star {
             constructor() {
@@ -107,6 +118,7 @@
                 this.heartX = 0;
                 this.heartY = 0;
                 this.color = this.getStarColor();
+                this.animationDelay = Math.random() * 0.5; // Delay aleatório para cada estrela
             }
             
             getStarColor() {
@@ -115,7 +127,7 @@
             }
             
             update() {
-                if (!heartMode) {
+                if (!heartMode && !isAnimating) {
                     const dx = this.x - mouseX;
                     const dy = this.y - mouseY;
                     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -133,19 +145,27 @@
                 let targetX = heartMode ? this.heartX : this.originalX;
                 let targetY = heartMode ? this.heartY : this.originalY;
                 
-                if (heartMode) {
-                    const dx = targetX - this.x;
-                    const dy = targetY - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
+                if (isAnimating && heartMode) {
+                    // Animação suave para formar o coração
+                    const progress = Math.max(0, Math.min(1, (animationProgress - this.animationDelay) / (1 - this.animationDelay)));
+                    const easeProgress = 1 - Math.pow(1 - progress, 3); // Easing cúbico
                     
-                    if (distance > 5) {
-                        this.vx = dx * 0.2;
-                        this.vy = dy * 0.2;
-                    } else {
-                        this.vx *= 0.5;
-                        this.vy *= 0.5;
+                    const currentX = this.originalX + (this.heartX - this.originalX) * easeProgress;
+                    const currentY = this.originalY + (this.heartY - this.originalY) * easeProgress;
+                    
+                    this.x = currentX;
+                    this.y = currentY;
+                    
+                    // Pequena vibração no final
+                    if (progress > 0.9) {
+                        this.x += (Math.random() - 0.5) * 0.5;
+                        this.y += (Math.random() - 0.5) * 0.5;
                     }
-                } else {
+                } else if (heartMode && !isAnimating) {
+                    // Manter posição do coração com pequena oscilação
+                    this.x = this.heartX + Math.sin(Date.now() * 0.001 + this.twinkleOffset) * 0.5;
+                    this.y = this.heartY + Math.cos(Date.now() * 0.001 + this.twinkleOffset) * 0.5;
+                } else if (!heartMode && !isAnimating) {
                     const returnDx = targetX - this.x;
                     const returnDy = targetY - this.y;
                     const returnDistance = Math.sqrt(returnDx * returnDx + returnDy * returnDy);
@@ -158,12 +178,12 @@
                     
                     this.vx *= 0.98;
                     this.vy *= 0.98;
+                    
+                    this.x += this.vx;
+                    this.y += this.vy;
                 }
                 
-                this.x += this.vx;
-                this.y += this.vy;
-                
-                if (!heartMode) {
+                if (!heartMode && !isAnimating) {
                     if (this.x < -50) {
                         this.x = canvas.width + 50;
                         this.originalX = this.x;
@@ -203,6 +223,18 @@
                     ctx.fill();
                 }
                 
+                // Brilho extra durante a animação
+                if (isAnimating && heartMode) {
+                    const progress = Math.max(0, Math.min(1, (animationProgress - this.animationDelay) / (1 - this.animationDelay)));
+                    if (progress > 0.5) {
+                        ctx.globalAlpha = (progress - 0.5) * 0.6;
+                        ctx.fillStyle = '#ff69b4';
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
                 ctx.globalAlpha = alpha;
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
@@ -237,8 +269,8 @@
         function generateHeartPositions() {
             const positions = [];
             const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const scale = 8;
+            const centerY = canvas.height / 2 - 50; // Elevado para dar espaço para o texto
+            const scale = 10;
             
             for (let i = 0; i < stars.length; i++) {
                 const t = (i / stars.length) * Math.PI * 2;
@@ -255,21 +287,48 @@
         }
         
         function toggleHeartMode() {
-            heartMode = !heartMode;
-            
-            if (heartMode) {
+            if (!heartMode) {
+                heartMode = true;
+                isAnimating = true;
+                animationProgress = 0;
+                
                 const heartPositions = generateHeartPositions();
                 stars.forEach((star, index) => {
                     const pos = heartPositions[index];
                     star.heartX = pos.x;
                     star.heartY = pos.y;
+                    star.originalX = star.x;
+                    star.originalY = star.y;
                 });
                 
-                stars.forEach(star => {
-                    const romanticColors = ['#ff69b4', '#ff1493', '#ffc0cb', '#ffffff', '#ffb6c1', '#ff91a4'];
-                    star.color = romanticColors[Math.floor(Math.random() * romanticColors.length)];
-                });
+                // Mudança gradual de cor
+                const animationDuration = 3000; // 3 segundos de animação
+                const startTime = Date.now();
+                
+                const animateHeart = () => {
+                    const elapsed = Date.now() - startTime;
+                    animationProgress = Math.min(1, elapsed / animationDuration);
+                    
+                    if (animationProgress < 1) {
+                        stars.forEach(star => {
+                            const romanticColors = ['#ff69b4', '#ff1493', '#ffc0cb', '#ffffff', '#ffb6c1', '#ff91a4'];
+                            if (Math.random() < 0.02) { // Mudança gradual de cor
+                                star.color = romanticColors[Math.floor(Math.random() * romanticColors.length)];
+                            }
+                        });
+                        requestAnimationFrame(animateHeart);
+                    } else {
+                        isAnimating = false;
+                        loveMessage.classList.add('show');
+                    }
+                };
+                
+                animateHeart();
             } else {
+                heartMode = false;
+                isAnimating = false;
+                loveMessage.classList.remove('show');
+                
                 stars.forEach(star => {
                     star.color = star.getStarColor();
                 });
@@ -380,6 +439,8 @@
                 case 'r':
                     createStars();
                     heartMode = false;
+                    isAnimating = false;
+                    loveMessage.classList.remove('show');
                     break;
             }
         });
